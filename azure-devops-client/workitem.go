@@ -10,13 +10,17 @@ type WorkItem struct {
 }
 
 type WorkItemFields struct {
-	Title        string `json:"System.Title"`
-	Path         string `json:"System.AreaPath"`
-	CreatedDate  string `json:"System.CreatedDate"`
-	AcceptedDate string `json:"Microsoft.VSTS.CodeReview.AcceptedDate"`
-	ResolvedDate string `json:"Microsoft.VSTS.Common.ResolvedDate"`
-	ClosedDate   string `json:"Microsoft.VSTS.Common.ClosedDate"`
-	StoryPoints  string `json:"Microsoft.VSTS.Scheduling.StoryPoints"`
+	Title         string  `json:"System.Title"`
+	AreaPath      string  `json:"System.AreaPath"`
+	CreatedDate   string  `json:"System.CreatedDate"`
+	AcceptedDate  string  `json:"Microsoft.VSTS.CodeReview.AcceptedDate"`
+	ResolvedDate  string  `json:"Microsoft.VSTS.Common.ResolvedDate"`
+	ClosedDate    string  `json:"Microsoft.VSTS.Common.ClosedDate"`
+	StoryPoints   float64 `json:"Microsoft.VSTS.Scheduling.StoryPoints"`
+	WorkItemType  string  `json:"System.WorkItemType"`
+	AssignedTo    string  `json:"System.AssignedTo"`
+	Priority      int     `json:"Microsoft.VSTS.Common.Priority"`
+	IterationPath string  `json:"System.IterationPath"`
 }
 
 func (c *AzureDevopsClient) GetWorkItem(workItemUrl string) (workItem WorkItem, error error) {
