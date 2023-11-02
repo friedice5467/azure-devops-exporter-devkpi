@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 
+	"strconv"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/webdevops/go-common/prometheus/collector"
 	"go.uber.org/zap"
@@ -49,6 +51,11 @@ func (m *MetricsCollectorQuery) Setup(collector *collector.Collector) {
 			"acceptedDate",
 			"resolvedDate",
 			"closedDate",
+			"storyPoints",
+			"workItemType",
+			"assignedTo",
+			"priority",
+			"iterationPath",
 		},
 	)
 	m.Collector.RegisterMetricList("workItemData", m.prometheus.workItemData, true)
@@ -93,15 +100,20 @@ func (m *MetricsCollectorQuery) collectQueryResults(ctx context.Context, logger 
 		}
 
 		workItemsDataMetric.AddInfo(prometheus.Labels{
-			"projectId":    projectID,
-			"queryPath":    queryPath,
-			"id":           int64ToString(workItem.Id),
-			"title":        workItem.Fields.Title,
-			"path":         workItem.Fields.Path,
-			"createdDate":  workItem.Fields.CreatedDate,
-			"acceptedDate": workItem.Fields.AcceptedDate,
-			"resolvedDate": workItem.Fields.ResolvedDate,
-			"closedDate":   workItem.Fields.ClosedDate,
+			"projectId":     projectID,
+			"queryPath":     queryPath,
+			"id":            int64ToString(workItem.Id),
+			"title":         workItem.Fields.Title,
+			"path":          workItem.Fields.AreaPath,
+			"createdDate":   workItem.Fields.CreatedDate,
+			"acceptedDate":  workItem.Fields.AcceptedDate,
+			"resolvedDate":  workItem.Fields.ResolvedDate,
+			"closedDate":    workItem.Fields.ClosedDate,
+			"storyPoints":   strconv.FormatFloat(workItem.Fields.StoryPoints, 'f', -1, 64),
+			"workItemType":  workItem.Fields.WorkItemType,
+			"assignedTo":    workItem.Fields.AssignedTo,
+			"priority":      strconv.Itoa(workItem.Fields.Priority),
+			"iterationPath": workItem.Fields.IterationPath,
 		})
 	}
 }
