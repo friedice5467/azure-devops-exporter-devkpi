@@ -16,6 +16,7 @@ type WorkItemFields struct {
 	AcceptedDate string `json:"Microsoft.VSTS.CodeReview.AcceptedDate"`
 	ResolvedDate string `json:"Microsoft.VSTS.Common.ResolvedDate"`
 	ClosedDate   string `json:"Microsoft.VSTS.Common.ClosedDate"`
+	StoryPoints  string `json:"Microsoft.VSTS.Scheduling.StoryPoints"`
 }
 
 func (c *AzureDevopsClient) GetWorkItem(workItemUrl string) (workItem WorkItem, error error) {

@@ -49,6 +49,7 @@ func (m *MetricsCollectorQuery) Setup(collector *collector.Collector) {
 			"acceptedDate",
 			"resolvedDate",
 			"closedDate",
+			"storyPoints",
 		},
 	)
 	m.Collector.RegisterMetricList("workItemData", m.prometheus.workItemData, true)
@@ -102,6 +103,7 @@ func (m *MetricsCollectorQuery) collectQueryResults(ctx context.Context, logger 
 			"acceptedDate": workItem.Fields.AcceptedDate,
 			"resolvedDate": workItem.Fields.ResolvedDate,
 			"closedDate":   workItem.Fields.ClosedDate,
+			"storyPoints":  workItem.Fields.StoryPoints,
 		})
 	}
 }
