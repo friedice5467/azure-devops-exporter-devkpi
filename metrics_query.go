@@ -30,7 +30,7 @@ func (m *MetricsCollectorQuery) Setup(collector *collector.Collector) {
 		},
 		[]string{
 			// We use this only for bugs. Add more fields as needed.
-			"projectId",
+			"projectID",
 			"queryPath",
 		},
 	)
@@ -42,7 +42,7 @@ func (m *MetricsCollectorQuery) Setup(collector *collector.Collector) {
 			Help: "Azure DevOps WorkItems",
 		},
 		[]string{
-			"projectId",
+			"projectID",
 			"queryPath",
 			"id",
 			"title",
@@ -56,6 +56,7 @@ func (m *MetricsCollectorQuery) Setup(collector *collector.Collector) {
 			"assignedTo",
 			"priority",
 			"iterationPath",
+			"state",
 		},
 	)
 	m.Collector.RegisterMetricList("workItemData", m.prometheus.workItemData, true)
@@ -88,7 +89,7 @@ func (m *MetricsCollectorQuery) collectQueryResults(ctx context.Context, logger 
 	}
 
 	workItemsMetric.Add(prometheus.Labels{
-		"projectId": projectID,
+		"projectID": projectID,
 		"queryPath": queryPath,
 	}, float64(len(workItemInfoList.List)))
 
@@ -100,7 +101,7 @@ func (m *MetricsCollectorQuery) collectQueryResults(ctx context.Context, logger 
 		}
 
 		workItemsDataMetric.AddInfo(prometheus.Labels{
-			"projectId":     projectID,
+			"projectID":     projectID,
 			"queryPath":     queryPath,
 			"id":            int64ToString(workItem.Id),
 			"title":         workItem.Fields.Title,
@@ -111,9 +112,10 @@ func (m *MetricsCollectorQuery) collectQueryResults(ctx context.Context, logger 
 			"closedDate":    workItem.Fields.ClosedDate,
 			"storyPoints":   strconv.FormatFloat(workItem.Fields.StoryPoints, 'f', -1, 64),
 			"workItemType":  workItem.Fields.WorkItemType,
-			"assignedTo":    workItem.Fields.AssignedTo,
+			"assignedTo":    workItem.Fields.AssignedTo.DisplayName,
 			"priority":      strconv.Itoa(workItem.Fields.Priority),
 			"iterationPath": workItem.Fields.IterationPath,
+			"state":         workItem.Fields.State,
 		})
 	}
 }
