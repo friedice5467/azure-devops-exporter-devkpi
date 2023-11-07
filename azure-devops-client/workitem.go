@@ -20,7 +20,7 @@ type WorkItemFields struct {
 	AcceptedDate  string     `json:"Microsoft.VSTS.CodeReview.AcceptedDate"`
 	ResolvedDate  string     `json:"Microsoft.VSTS.Common.ResolvedDate"`
 	ClosedDate    string     `json:"Microsoft.VSTS.Common.ClosedDate"`
-	StoryPoints   float64    `json:"Microsoft.VSTS.Scheduling.StoryPoints"`
+	StoryPoints   *float64   `json:"Microsoft.VSTS.Scheduling.StoryPoints"`
 	WorkItemType  string     `json:"System.WorkItemType"`
 	AssignedTo    AssignedTo `json:"System.AssignedTo"`
 	Priority      int        `json:"Microsoft.VSTS.Common.Priority"`

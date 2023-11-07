@@ -15,8 +15,9 @@ type MetricsCollectorQuery struct {
 	collector.Processor
 
 	prometheus struct {
-		workItemCount *prometheus.GaugeVec
-		workItemData  *prometheus.GaugeVec
+		workItemCount       *prometheus.GaugeVec
+		workItemData        *prometheus.GaugeVec
+		workItemStoryPoints *prometheus.GaugeVec
 	}
 }
 
@@ -60,6 +61,20 @@ func (m *MetricsCollectorQuery) Setup(collector *collector.Collector) {
 		},
 	)
 	m.Collector.RegisterMetricList("workItemData", m.prometheus.workItemData, true)
+	m.prometheus.workItemStoryPoints = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "azure_devops_workitem_storypoints",
+			Help: "Azure DevOps WorkItems Story Points",
+		},
+		[]string{
+			"projectID",
+			"queryPath",
+			"id",
+			"iterationPath",
+			"state",
+		},
+	)
+	m.Collector.RegisterMetricList("workItemStoryPoints", m.prometheus.workItemStoryPoints, true)
 }
 
 func (m *MetricsCollectorQuery) Reset() {}
@@ -78,9 +93,17 @@ func (m *MetricsCollectorQuery) Collect(callback chan<- func()) {
 	}
 }
 
+func defaultToZero(num *float64) float64 {
+	if num == nil {
+		return 0
+	}
+	return *num
+}
+
 func (m *MetricsCollectorQuery) collectQueryResults(ctx context.Context, logger *zap.SugaredLogger, callback chan<- func(), queryPath string, projectID string) {
 	workItemsMetric := m.Collector.GetMetricList("workItemCount")
 	workItemsDataMetric := m.Collector.GetMetricList("workItemData")
+	workItemSPMetric := m.Collector.GetMetricList("workItemStoryPoints")
 
 	workItemInfoList, err := AzureDevopsClient.QueryWorkItems(queryPath, projectID)
 	if err != nil {
@@ -110,12 +133,23 @@ func (m *MetricsCollectorQuery) collectQueryResults(ctx context.Context, logger 
 			"acceptedDate":  workItem.Fields.AcceptedDate,
 			"resolvedDate":  workItem.Fields.ResolvedDate,
 			"closedDate":    workItem.Fields.ClosedDate,
-			"storyPoints":   strconv.FormatFloat(workItem.Fields.StoryPoints, 'f', -1, 64),
+			"storyPoints":   strconv.FormatFloat(defaultToZero(workItem.Fields.StoryPoints), 'f', -1, 64),
 			"workItemType":  workItem.Fields.WorkItemType,
 			"assignedTo":    workItem.Fields.AssignedTo.DisplayName,
 			"priority":      strconv.Itoa(workItem.Fields.Priority),
 			"iterationPath": workItem.Fields.IterationPath,
 			"state":         workItem.Fields.State,
 		})
+
+		if workItem.Fields.StoryPoints != nil {
+			workItemSPMetric.AddIfGreaterZero(prometheus.Labels{
+				"projectID":     projectID,
+				"queryPath":     queryPath,
+				"id":            int64ToString(workItem.Id),
+				"iterationPath": workItem.Fields.IterationPath,
+				"state":         workItem.Fields.State,
+			}, defaultToZero(workItem.Fields.StoryPoints))
+		}
 	}
+
 }
