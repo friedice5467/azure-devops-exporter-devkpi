@@ -75,6 +75,37 @@ type Build struct {
 	Links Links `json:"_links"`
 }
 
+type BuildCodeCoverage struct {
+	CoverageData []CoverageData `json:"coverageData"`
+	Build        struct {
+		ID  string `json:"id"`
+		URL string `json:"url"`
+	} `json:"build"`
+	DeltaBuild                    any    `json:"deltaBuild"`
+	Status                        string `json:"status"`
+	CoverageDetailedSummaryStatus string `json:"coverageDetailedSummaryStatus"`
+}
+
+type CoverageData struct {
+	CoverageStats []struct {
+		Label            string  `json:"label"`
+		Position         int     `json:"position"`
+		Total            int     `json:"total"`
+		Covered          int     `json:"covered"`
+		IsDeltaAvailable bool    `json:"isDeltaAvailable"`
+		Delta            float64 `json:"delta"`
+	} `json:"coverageStats"`
+	BuildPlatform string `json:"buildPlatform"`
+	BuildFlavor   string `json:"buildFlavor"`
+}
+
+type CoverageLabelEnum int
+
+const (
+	Lines    CoverageLabelEnum = 1
+	Branches CoverageLabelEnum = 2
+)
+
 func (b *Build) QueueDuration() time.Duration {
 	return b.StartTime.Sub(b.QueueTime)
 }
@@ -221,6 +252,31 @@ func (c *AzureDevopsClient) ListBuildTimeline(project string, buildID string) (l
 	}
 
 	err = json.Unmarshal(response.Body(), &list)
+	if err != nil {
+		error = err
+		return
+	}
+
+	return
+}
+
+func (c *AzureDevopsClient) GetCodeCoverageStatsOfBuild(project string, buildID string) (coverage BuildCodeCoverage, error error) {
+	defer c.concurrencyUnlock()
+	c.concurrencyLock()
+
+	url := fmt.Sprintf(
+		"%v/_apis/test/codecoverage/?buildId=%v&api-version=%v",
+		url.QueryEscape(project),
+		url.QueryEscape(buildID),
+		url.QueryEscape(c.ApiVersion),
+	)
+	response, err := c.rest().R().Get(url)
+	if err := c.checkResponse(response, err); err != nil {
+		error = err
+		return
+	}
+
+	err = json.Unmarshal(response.Body(), &coverage)
 	if err != nil {
 		error = err
 		return
