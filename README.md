@@ -89,6 +89,7 @@ Metrics
 | `azure_devops_build_phase`                     | build         | Build phase infos (duration, errors, warnings, started, finished time)                  |
 | `azure_devops_build_job`                       | build         | Build job infos (duration, errors, warnings, started, finished time)                    |
 | `azure_devops_build_task`                      | build         | Build task infos (duration, errors, warnings, started, finished time)                   |
+| `azure_devops_build_code_coverage`             | build         | Build code coverage(lines, branches)                                                    |
 | `azure_devops_build_definition_info`           | build         | Build definition info                                                                   |
 | `azure_devops_release_info`                    | release       | Release informations                                                                    |
 | `azure_devops_release_artifact`                | release       | Release artifcact informations                                                          |
@@ -102,6 +103,8 @@ Metrics
 | `azure_devops_repository_commits`              | repository    | Repository commit counter                                                               |
 | `azure_devops_repository_pushes`               | repository    | Repository push counter                                                                 |
 | `azure_devops_query_result`                    | live          | Latest results of given queries                                                         |
+| `azure_devops_workitem_data`                   | live          | Gets work items by query                                                                |
+| `azure_devops_workitem_storypoints`            | live          | Gets work items by query with SP sum as a metric                                        |
 | `azure_devops_deployment_info`                 | deployment    | Release deployment informations                                                         |
 | `azure_devops_deployment_status`               | deployment    | Release deployment status informations                                                  |
 | `azure_devops_stats_agentpool_builds`          | stats         | Number of buildsper agentpool, project and result (counter)                             |
