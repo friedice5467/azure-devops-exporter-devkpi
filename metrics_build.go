@@ -364,14 +364,14 @@ func (m *MetricsCollectorBuild) collectBuildCodeCoverage(ctx context.Context, lo
 			"linesCoverable": strconv.Itoa(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Lines)).Total),
 			"linesCovered":   strconv.Itoa(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Lines)).Covered),
 			"pipelineName":   "Adora3.0 unit test and code coverage Test Dev Pipeline",
-		}, float64(findFirstCoverageStatsWithLineLabel(coverage, 1).Covered)/float64(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Lines)).Total))
+		}, float64(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Lines)).Covered)/float64(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Lines)).Total))
 
 		buildBranchCodeCoverageMetric.AddIfGreaterZero(prometheus.Labels{
 			"buildID":         coverage.Build.ID,
 			"branchCoverable": strconv.Itoa(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Branches)).Total),
 			"branchCovered":   strconv.Itoa(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Branches)).Covered),
 			"pipelineName":    "Adora3.0 unit test and code coverage Test Dev Pipeline",
-		}, float64(findFirstCoverageStatsWithLineLabel(coverage, 1).Covered)/float64(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Branches)).Total))
+		}, float64(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Branches)).Covered)/float64(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Branches)).Total))
 	}
 	//Comment back in TODO
 	// if POSDevBuildId > 0 {
