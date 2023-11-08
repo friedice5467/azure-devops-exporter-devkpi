@@ -3,6 +3,7 @@ package AzureDevopsClient
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"time"
 )
@@ -260,7 +261,7 @@ func (c *AzureDevopsClient) ListBuildTimeline(project string, buildID string) (l
 	return
 }
 
-func (c *AzureDevopsClient) GetCodeCoverageStatsOfBuild(project string, buildID string) (coverage BuildCodeCoverage, error error) {
+func (c *AzureDevopsClient) GetCodeCoverageStatsOfBuild(project string, buildID string) (coverage *BuildCodeCoverage, error error) {
 	defer c.concurrencyUnlock()
 	c.concurrencyLock()
 
@@ -280,6 +281,29 @@ func (c *AzureDevopsClient) GetCodeCoverageStatsOfBuild(project string, buildID 
 	if err != nil {
 		error = err
 		return
+	}
+
+	return
+}
+
+func (c *AzureDevopsClient) GetBuild(project string, buildID string) (build Build, error error) {
+	defer c.concurrencyUnlock()
+	c.concurrencyLock()
+	url := fmt.Sprintf(
+		"%v/_apis/build/Builds/%v",
+		url.QueryEscape(project),
+		url.QueryEscape(buildID),
+	)
+	log.Printf("The build url is %v", url)
+	response, err := c.rest().R().Get(url)
+	if err := c.checkResponse(response, err); err != nil {
+		error = err
+		return
+	}
+
+	err = json.Unmarshal(response.Body(), &build)
+	if err != nil {
+		error = err
 	}
 
 	return

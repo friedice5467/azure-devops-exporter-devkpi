@@ -30,8 +30,7 @@ type MetricsCollectorBuild struct {
 		buildJob   *prometheus.GaugeVec
 		buildTask  *prometheus.GaugeVec
 
-		buildLineCodeCoverage   *prometheus.GaugeVec
-		buildBranchCodeCoverage *prometheus.GaugeVec
+		buildCodeCoverage *prometheus.GaugeVec
 
 		buildTimeProject *prometheus.SummaryVec
 		jobTimeProject   *prometheus.SummaryVec
@@ -64,33 +63,21 @@ func (m *MetricsCollectorBuild) Setup(collector *collector.Collector) {
 	)
 	m.Collector.RegisterMetricList("build", m.prometheus.build, true)
 
-	m.prometheus.buildLineCodeCoverage = prometheus.NewGaugeVec(
+	m.prometheus.buildCodeCoverage = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "azure_devops_build_line_code_coverage",
-			Help: "Azure DevOps build line code coverage",
+			Name: "azure_devops_build_code_coverage",
+			Help: "Azure DevOps build code coverage",
 		},
 		[]string{
 			"buildID",
-			"linesCoverable",
-			"linesCovered",
+			"buildDefinitionID",
+			"coverageType",
+			"coverable",
+			"covered",
 			"pipelineName",
 		},
 	)
-	m.Collector.RegisterMetricList("buildLineCodeCoverage", m.prometheus.buildLineCodeCoverage, true)
-
-	m.prometheus.buildBranchCodeCoverage = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "azure_devops_build_branch_code_coverage",
-			Help: "Azure DevOps build branch code coverage",
-		},
-		[]string{
-			"buildID",
-			"branchCoverable",
-			"branchCovered",
-			"pipelineName",
-		},
-	)
-	m.Collector.RegisterMetricList("buildBranchCodeCoverage", m.prometheus.buildBranchCodeCoverage, true)
+	m.Collector.RegisterMetricList("buildCodeCoverage", m.prometheus.buildCodeCoverage, true)
 
 	m.prometheus.buildStatus = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -240,7 +227,7 @@ func (m *MetricsCollectorBuild) collectDefinition(ctx context.Context, logger *z
 	}
 }
 
-func findFirstCoverageStatsWithLineLabel(coverageObj devopsClient.BuildCodeCoverage, labelType int) *struct {
+func findFirstCoverageStatsWithLineLabel(coverageObj *devopsClient.BuildCodeCoverage, labelType int) *struct {
 	Label            string  `json:"label"`
 	Position         int     `json:"position"`
 	Total            int     `json:"total"`
@@ -274,13 +261,13 @@ func (m *MetricsCollectorBuild) collectBuilds(ctx context.Context, logger *zap.S
 	buildStatusMetric := m.Collector.GetMetricList("buildStatus")
 
 	for _, build := range list.List {
-		if build.Reason == "pullRequest" && build.Definition.Name == "Adora3.0 unit test and code coverage Test Dev Pipeline" && build.Result == "succeeded" {
+		if build.Reason == "pullRequest" && build.Definition.Id == 29 && build.Result == "succeeded" {
 			if build.Id > cloudDevBuildId {
 				cloudDevBuildId = build.Id
 			}
 		}
-		//Comment back in when we add unit test/code coverage for adora
-		// if build.Reason == "pullRequest" && build.Definition.Name == "Adora-Develop" && build.Result == "succeeded" {
+		//Comment back in when we add unit test/code coverage for POS
+		// if build.Reason == "pullRequest" && build.Definition.Id == 4 && build.Result == "succeeded" {
 		// 	if build.Id > POSDevBuildId {
 		// 		POSDevBuildId = build.Id
 		// 	}
@@ -349,54 +336,54 @@ func (m *MetricsCollectorBuild) collectBuilds(ctx context.Context, logger *zap.S
 	}
 }
 
+func (m *MetricsCollectorBuild) updateCoverageMetrics(ctx context.Context, logger *zap.SugaredLogger, project devopsClient.Project, buildID int64, metricName string) {
+	coverage, err := AzureDevopsClient.GetCodeCoverageStatsOfBuild(project.Id, int64ToString(buildID))
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	if coverage == nil {
+		return
+	}
+
+	build, err := AzureDevopsClient.GetBuild(project.Id, coverage.Build.ID)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+
+	lineCoverageStats := findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Lines))
+	branchCoverageStats := findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Branches))
+
+	buildCodeCoverageMetric := m.Collector.GetMetricList(metricName)
+
+	buildCodeCoverageMetric.AddIfGreaterZero(prometheus.Labels{
+		"buildID":           int64ToString(build.Id),
+		"buildDefinitionID": int64ToString(build.Definition.Id),
+		"coverageType":      strconv.Itoa(int(devopsClient.Lines)),
+		"coverable":         strconv.Itoa(lineCoverageStats.Total),
+		"covered":           strconv.Itoa(lineCoverageStats.Covered),
+		"pipelineName":      build.Definition.Name,
+	}, float64(lineCoverageStats.Covered)/float64(lineCoverageStats.Total))
+
+	buildCodeCoverageMetric.AddIfGreaterZero(prometheus.Labels{
+		"buildID":           int64ToString(build.Id),
+		"buildDefinitionID": int64ToString(build.Definition.Id),
+		"coverageType":      strconv.Itoa(int(devopsClient.Branches)),
+		"coverable":         strconv.Itoa(branchCoverageStats.Total),
+		"covered":           strconv.Itoa(branchCoverageStats.Covered),
+		"pipelineName":      build.Definition.Name,
+	}, float64(branchCoverageStats.Covered)/float64(branchCoverageStats.Total))
+}
+
 func (m *MetricsCollectorBuild) collectBuildCodeCoverage(ctx context.Context, logger *zap.SugaredLogger, callback chan<- func(), project devopsClient.Project) {
 	if cloudDevBuildId > 0 {
-		coverage, err := AzureDevopsClient.GetCodeCoverageStatsOfBuild(project.Id, int64ToString(cloudDevBuildId))
-		if err != nil {
-			logger.Error(err)
-			return
-		}
-		buildLineCodeCoverageMetric := m.Collector.GetMetricList("buildLineCodeCoverage")
-		buildBranchCodeCoverageMetric := m.Collector.GetMetricList("buildBranchCodeCoverage")
-
-		buildLineCodeCoverageMetric.AddIfGreaterZero(prometheus.Labels{
-			"buildID":        coverage.Build.ID,
-			"linesCoverable": strconv.Itoa(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Lines)).Total),
-			"linesCovered":   strconv.Itoa(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Lines)).Covered),
-			"pipelineName":   "Adora3.0 unit test and code coverage Test Dev Pipeline",
-		}, float64(findFirstCoverageStatsWithLineLabel(coverage, 1).Covered)/float64(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Lines)).Total))
-
-		buildBranchCodeCoverageMetric.AddIfGreaterZero(prometheus.Labels{
-			"buildID":         coverage.Build.ID,
-			"branchCoverable": strconv.Itoa(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Branches)).Total),
-			"branchCovered":   strconv.Itoa(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Branches)).Covered),
-			"pipelineName":    "Adora3.0 unit test and code coverage Test Dev Pipeline",
-		}, float64(findFirstCoverageStatsWithLineLabel(coverage, 1).Covered)/float64(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Branches)).Total))
+		m.updateCoverageMetrics(ctx, logger, project, cloudDevBuildId, "buildCodeCoverage")
 	}
-	//Comment back in TODO
-	// if POSDevBuildId > 0 {
-	// 	coverage, err := AzureDevopsClient.GetCodeCoverageStatsOfBuild(project.Id, int64ToString(POSDevBuildId))
-	// 	if err != nil {
-	// 		logger.Error(err)
-	// 		return
-	// 	}
-	// 	buildLineCodeCoverageMetric := m.Collector.GetMetricList("buildLineCodeCoverage")
-	// 	buildBranchCodeCoverageMetric := m.Collector.GetMetricList("buildBranchCodeCoverage")
 
-	// 	buildLineCodeCoverageMetric.AddIfGreaterZero(prometheus.Labels{
-	// 		"buildID":        coverage.Build.ID,
-	// 		"linesCoverable": strconv.Itoa(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Lines)).Total),
-	// 		"linesCovered":   strconv.Itoa(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Lines)).Covered),
-	//		"pipelineName":   "Adora-Develop",
-	// 	}, float64(findFirstCoverageStatsWithLineLabel(coverage, 1).Covered)/float64(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Lines)).Total))
-
-	// 	buildBranchCodeCoverageMetric.AddIfGreaterZero(prometheus.Labels{
-	// 		"buildID":         coverage.Build.ID,
-	// 		"branchCoverable": strconv.Itoa(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Branches)).Total),
-	// 		"branchCovered":   strconv.Itoa(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Branches)).Covered),
-	//		"pipelineName":   "Adora-Develop",
-	// 	}, float64(findFirstCoverageStatsWithLineLabel(coverage, 1).Covered)/float64(findFirstCoverageStatsWithLineLabel(coverage, int(devopsClient.Branches)).Total))
-	// }
+	if POSDevBuildId > 0 {
+		m.updateCoverageMetrics(ctx, logger, project, POSDevBuildId, "buildCodeCoverage")
+	}
 }
 
 func (m *MetricsCollectorBuild) collectBuildsTimeline(ctx context.Context, logger *zap.SugaredLogger, callback chan<- func(), project devopsClient.Project) {
