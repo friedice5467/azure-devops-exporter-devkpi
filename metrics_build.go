@@ -37,6 +37,8 @@ type MetricsCollectorBuild struct {
 
 		buildCodeCoverage *prometheus.GaugeVec
 		buildTestRun      *prometheus.GaugeVec
+		buildPassedTests  *prometheus.GaugeVec
+		buildTotalTests   *prometheus.GaugeVec
 
 		buildTimeProject *prometheus.SummaryVec
 		jobTimeProject   *prometheus.SummaryVec
@@ -93,12 +95,7 @@ func (m *MetricsCollectorBuild) Setup(collector *collector.Collector) {
 		[]string{
 			"buildID",
 			"testName",
-			"state",
-			"totalTests",
-			"passedTests",
-			"incompleteTests",
-			"notApplicableTests",
-			"webUrl",
+			"metricType",
 			"pipelineName",
 		},
 	)
@@ -385,16 +382,32 @@ func (m *MetricsCollectorBuild) updateTestRunMetric(ctx context.Context, logger 
 		}
 
 		buildTestRunMetric.AddIfGreaterZero(prometheus.Labels{
-			"buildID":            run.Build.ID,
-			"testName":           run.Name,
-			"state":              run.State,
-			"totalTests":         strconv.Itoa(run.TotalTests),
-			"passedTests":        strconv.Itoa(run.PassedTests),
-			"incompleteTests":    strconv.Itoa(run.IncompleteTests),    //failed tests
-			"notApplicableTests": strconv.Itoa(run.NotApplicableTests), //skipped tests
-			"webUrl":             run.WebAccessURL,
-			"pipelineName":       build.Definition.Name,
-		}, float64(run.PassedTests)/float64(run.TotalTests))
+			"buildID":      run.Build.ID,
+			"metricType":   "passedTestAmt",
+			"testName":     run.Name,
+			"pipelineName": build.Definition.Name,
+		}, float64(run.PassedTests))
+
+		buildTestRunMetric.AddIfGreaterZero(prometheus.Labels{
+			"buildID":      run.Build.ID,
+			"metricType":   "totalTestAmt",
+			"testName":     run.Name,
+			"pipelineName": build.Definition.Name,
+		}, float64(run.TotalTests))
+
+		buildTestRunMetric.AddIfGreaterZero(prometheus.Labels{
+			"buildID":      run.Build.ID,
+			"metricType":   "skippedTestAmt",
+			"testName":     run.Name,
+			"pipelineName": build.Definition.Name,
+		}, float64(run.NotApplicableTests))
+
+		buildTestRunMetric.AddIfGreaterZero(prometheus.Labels{
+			"buildID":      run.Build.ID,
+			"metricType":   "failedTestAmt",
+			"testName":     run.Name,
+			"pipelineName": build.Definition.Name,
+		}, float64(run.IncompleteTests))
 	}
 
 }
