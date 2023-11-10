@@ -13,7 +13,12 @@ import (
 	devopsClient "github.com/webdevops/azure-devops-exporter/azure-devops-client"
 )
 
-var cloudDevBuildId int64
+type CloudDevBuild struct {
+	ID  int64
+	Uri string
+}
+
+var cloudDevBuild CloudDevBuild
 var POSDevBuildId int64
 
 type MetricsCollectorBuild struct {
@@ -31,6 +36,9 @@ type MetricsCollectorBuild struct {
 		buildTask  *prometheus.GaugeVec
 
 		buildCodeCoverage *prometheus.GaugeVec
+		buildTestRun      *prometheus.GaugeVec
+		buildPassedTests  *prometheus.GaugeVec
+		buildTotalTests   *prometheus.GaugeVec
 
 		buildTimeProject *prometheus.SummaryVec
 		jobTimeProject   *prometheus.SummaryVec
@@ -78,6 +86,20 @@ func (m *MetricsCollectorBuild) Setup(collector *collector.Collector) {
 		},
 	)
 	m.Collector.RegisterMetricList("buildCodeCoverage", m.prometheus.buildCodeCoverage, true)
+
+	m.prometheus.buildTestRun = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "azure_devops_build_test_run",
+			Help: "Azure DevOps build test run",
+		},
+		[]string{
+			"buildID",
+			"testName",
+			"metricType",
+			"pipelineName",
+		},
+	)
+	m.Collector.RegisterMetricList("buildTestRun", m.prometheus.buildTestRun, true)
 
 	m.prometheus.buildStatus = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -262,8 +284,9 @@ func (m *MetricsCollectorBuild) collectBuilds(ctx context.Context, logger *zap.S
 
 	for _, build := range list.List {
 		if build.Reason == "pullRequest" && build.Definition.Id == 29 && build.Result == "succeeded" {
-			if build.Id > cloudDevBuildId {
-				cloudDevBuildId = build.Id
+			if build.Id > cloudDevBuild.ID {
+				cloudDevBuild.ID = build.Id
+				cloudDevBuild.Uri = build.Uri
 			}
 		}
 		//Comment back in when we add unit test/code coverage for POS
@@ -336,19 +359,76 @@ func (m *MetricsCollectorBuild) collectBuilds(ctx context.Context, logger *zap.S
 	}
 }
 
+func (m *MetricsCollectorBuild) updateTestRunMetric(ctx context.Context, logger *zap.SugaredLogger, project devopsClient.Project, buildUri string, metricName string) {
+	testRun, err := AzureDevopsClient.GetTestRunsForBuild(project.Id, buildUri)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	if testRun == nil || testRun.Count == 0 {
+		return
+	}
+
+	buildTestRunMetric := m.Collector.GetMetricList(metricName)
+	for _, run := range testRun.Value {
+		build, err := AzureDevopsClient.GetBuild(project.Id, run.Build.ID)
+		if err != nil {
+			logger.Error(err)
+			return
+		}
+
+		if build == nil {
+			return
+		}
+
+		buildTestRunMetric.AddIfGreaterZero(prometheus.Labels{
+			"buildID":      run.Build.ID,
+			"metricType":   "passedTestAmt",
+			"testName":     run.Name,
+			"pipelineName": build.Definition.Name,
+		}, float64(run.PassedTests))
+
+		buildTestRunMetric.AddIfGreaterZero(prometheus.Labels{
+			"buildID":      run.Build.ID,
+			"metricType":   "totalTestAmt",
+			"testName":     run.Name,
+			"pipelineName": build.Definition.Name,
+		}, float64(run.TotalTests))
+
+		buildTestRunMetric.AddIfGreaterZero(prometheus.Labels{
+			"buildID":      run.Build.ID,
+			"metricType":   "skippedTestAmt",
+			"testName":     run.Name,
+			"pipelineName": build.Definition.Name,
+		}, float64(run.NotApplicableTests))
+
+		buildTestRunMetric.AddIfGreaterZero(prometheus.Labels{
+			"buildID":      run.Build.ID,
+			"metricType":   "failedTestAmt",
+			"testName":     run.Name,
+			"pipelineName": build.Definition.Name,
+		}, float64(run.IncompleteTests))
+	}
+
+}
+
 func (m *MetricsCollectorBuild) updateCoverageMetrics(ctx context.Context, logger *zap.SugaredLogger, project devopsClient.Project, buildID int64, metricName string) {
 	coverage, err := AzureDevopsClient.GetCodeCoverageStatsOfBuild(project.Id, int64ToString(buildID))
 	if err != nil {
 		logger.Error(err)
 		return
 	}
-	if coverage == nil {
+	if coverage == nil || coverage.Build == nil {
 		return
 	}
 
 	build, err := AzureDevopsClient.GetBuild(project.Id, coverage.Build.ID)
 	if err != nil {
 		logger.Error(err)
+		return
+	}
+
+	if build == nil {
 		return
 	}
 
@@ -377,8 +457,9 @@ func (m *MetricsCollectorBuild) updateCoverageMetrics(ctx context.Context, logge
 }
 
 func (m *MetricsCollectorBuild) collectBuildCodeCoverage(ctx context.Context, logger *zap.SugaredLogger, callback chan<- func(), project devopsClient.Project) {
-	if cloudDevBuildId > 0 {
-		m.updateCoverageMetrics(ctx, logger, project, cloudDevBuildId, "buildCodeCoverage")
+	if cloudDevBuild.ID > 0 {
+		m.updateCoverageMetrics(ctx, logger, project, cloudDevBuild.ID, "buildCodeCoverage")
+		m.updateTestRunMetric(ctx, logger, project, cloudDevBuild.Uri, "buildTestRun")
 	}
 
 	if POSDevBuildId > 0 {

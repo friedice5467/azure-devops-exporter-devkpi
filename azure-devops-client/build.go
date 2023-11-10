@@ -78,7 +78,7 @@ type Build struct {
 
 type BuildCodeCoverage struct {
 	CoverageData []CoverageData `json:"coverageData"`
-	Build        struct {
+	Build        *struct {
 		ID  string `json:"id"`
 		URL string `json:"url"`
 	} `json:"build"`
@@ -106,6 +106,49 @@ const (
 	Lines    CoverageLabelEnum = 1
 	Branches CoverageLabelEnum = 2
 )
+
+type TestRuns struct {
+	Count int `json:"count"`
+	Value []struct {
+		ID    int    `json:"id"`
+		Name  string `json:"name"`
+		URL   string `json:"url"`
+		Build struct {
+			ID string `json:"id"`
+		} `json:"build"`
+		IsAutomated bool `json:"isAutomated"`
+		Owner       struct {
+			DisplayName string `json:"displayName"`
+			ID          string `json:"id"`
+		} `json:"owner"`
+		Project struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"project"`
+		StartedDate        time.Time `json:"startedDate"`
+		CompletedDate      time.Time `json:"completedDate"`
+		State              string    `json:"state"`
+		TotalTests         int       `json:"totalTests"`
+		IncompleteTests    int       `json:"incompleteTests"`
+		NotApplicableTests int       `json:"notApplicableTests"`
+		PassedTests        int       `json:"passedTests"`
+		UnanalyzedTests    int       `json:"unanalyzedTests"`
+		Revision           int       `json:"revision"`
+		WebAccessURL       string    `json:"webAccessUrl"`
+		PipelineReference  struct {
+			PipelineID     int `json:"pipelineId"`
+			StageReference struct {
+				StageName string `json:"stageName"`
+			} `json:"stageReference"`
+			PhaseReference struct {
+				PhaseName string `json:"phaseName"`
+			} `json:"phaseReference"`
+			JobReference struct {
+				JobName string `json:"jobName"`
+			} `json:"jobReference"`
+		} `json:"pipelineReference"`
+	} `json:"value"`
+}
 
 func (b *Build) QueueDuration() time.Duration {
 	return b.StartTime.Sub(b.QueueTime)
@@ -286,7 +329,7 @@ func (c *AzureDevopsClient) GetCodeCoverageStatsOfBuild(project string, buildID 
 	return
 }
 
-func (c *AzureDevopsClient) GetBuild(project string, buildID string) (build Build, error error) {
+func (c *AzureDevopsClient) GetBuild(project string, buildID string) (build *Build, error error) {
 	defer c.concurrencyUnlock()
 	c.concurrencyLock()
 	url := fmt.Sprintf(
@@ -302,6 +345,30 @@ func (c *AzureDevopsClient) GetBuild(project string, buildID string) (build Buil
 	}
 
 	err = json.Unmarshal(response.Body(), &build)
+	if err != nil {
+		error = err
+	}
+
+	return
+}
+
+func (c *AzureDevopsClient) GetTestRunsForBuild(project string, buildUri string) (testRuns *TestRuns, error error) {
+	defer c.concurrencyUnlock()
+	c.concurrencyLock()
+	url := fmt.Sprintf(
+		"%v/_apis/test/runs?includeRunDetails=true&automated=true&buildUri=%v&api-version=%v",
+		url.QueryEscape(project),
+		url.QueryEscape(buildUri),
+		url.QueryEscape(c.ApiVersion),
+	)
+	log.Printf("The test runs url is %v", url)
+	response, err := c.rest().R().Get(url)
+	if err := c.checkResponse(response, err); err != nil {
+		error = err
+		return
+	}
+
+	err = json.Unmarshal(response.Body(), &testRuns)
 	if err != nil {
 		error = err
 	}
