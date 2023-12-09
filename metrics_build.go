@@ -257,21 +257,42 @@ func findFirstCoverageStatsWithLineLabel(coverageObj *devopsClient.BuildCodeCove
 	IsDeltaAvailable bool    `json:"isDeltaAvailable"`
 	Delta            float64 `json:"delta"`
 } {
+	var label string
+	if labelType == int(devopsClient.Lines) {
+		label = "Lines"
+	} else {
+		label = "Branches"
+	}
+
 	for _, coverageData := range coverageObj.CoverageData {
 		for _, stat := range coverageData.CoverageStats {
-			if stat.Label == "Lines" && labelType == int(devopsClient.Lines) {
-				return &stat
-			}
-			if stat.Label == "Branches" && labelType == int(devopsClient.Branches) {
+			if stat.Label == label {
 				return &stat
 			}
 		}
 	}
-	return nil
+
+	// Return a default struct with the appropriate label
+	return &struct {
+		Label            string  `json:"label"`
+		Position         int     `json:"position"`
+		Total            int     `json:"total"`
+		Covered          int     `json:"covered"`
+		IsDeltaAvailable bool    `json:"isDeltaAvailable"`
+		Delta            float64 `json:"delta"`
+	}{
+		Label:            label,
+		Position:         0,
+		Total:            0,
+		Covered:          0,
+		IsDeltaAvailable: false,
+		Delta:            0.0,
+	}
 }
 
 func (m *MetricsCollectorBuild) collectBuilds(ctx context.Context, logger *zap.SugaredLogger, callback chan<- func(), project devopsClient.Project) {
-	minTime := time.Now().Add(-opts.Limit.BuildHistoryDuration)
+	twoWeeks := time.Hour * 24 * 14 // 14 days
+	minTime := time.Now().Add(-opts.Limit.BuildHistoryDuration).Add(-twoWeeks)
 
 	list, err := AzureDevopsClient.ListBuildHistory(project.Id, minTime)
 	if err != nil {
