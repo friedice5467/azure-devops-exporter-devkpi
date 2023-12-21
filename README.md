@@ -8,6 +8,8 @@ Azure DevOps Exporter (VSTS)
 
 Prometheus exporter for Azure DevOps (VSTS) for projects, builds, build times (elapsed and queue wait time), agent pool utilization and active pull requests.
 
+Custom fork to include custom DevOps KPI tracking
+
 Configuration
 -------------
 
