@@ -2,7 +2,7 @@ Azure DevOps Exporter (VSTS)
 ============================
 
 [![license](https://img.shields.io/github/license/webdevops/azure-devops-exporter.svg)](https://github.com/webdevops/azure-devops-exporter/blob/master/LICENSE)
-[![DockerHub](https://img.shields.io/badge/DockerHub-webdevops%2Fazure--devops--exporter-blue)](https://hub.docker.com/r/webdevops/azure-devops-exporter/)
+[![DockerHub](https://img.shields.io/badge/DockerHub-friedice5467%2Fazure--devops--exporter--devkpi-blue)](https://hub.docker.com/r/friedice54671/azure-devops-exporter-devkpi/)
 [![Quay.io](https://img.shields.io/badge/Quay.io-webdevops%2Fazure--devops--exporter-blue)](https://quay.io/repository/webdevops/azure-devops-exporter)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/azure-devops-exporter)](https://artifacthub.io/packages/search?repo=azure-devops-exporter)
 
